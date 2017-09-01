@@ -29,7 +29,7 @@ with records to give the parameters names and therefore reducing errors.
 
 # Builders
 
-@docs root, append, s, int, string, (</>)
+@docs root, append, s, int, string, custom, (</>)
 
 
 # Presenting
