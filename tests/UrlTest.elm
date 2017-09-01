@@ -64,7 +64,7 @@ suite =
             \_ ->
                 (Url.root </> Url.s "part" </> Url.int .id @ { id = 42 })
                     |> Expect.equal "/part/42"
-        , test "Can use custom part" <|
+        , test "Can use custom segment" <|
             \_ ->
                 let
                     idsSegment =
