@@ -11,3 +11,5 @@ userUrl = root </> s "users" </> int .id
 
 userUrl @ { id = 42 } == "/users/42"
 ```
+
+[http://package.elm-lang.org/packages/nonpop/elm-purl/latest/Url](Full API documentation.)
