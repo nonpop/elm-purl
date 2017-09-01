@@ -48,7 +48,7 @@ type Url a
     = Url (List (Segment a))
 
 
-{-| A parameteried segment of a URL.
+{-| A parameterized segment of a URL.
 -}
 type Segment a
     = Segment (a -> String)
