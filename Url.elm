@@ -1,6 +1,7 @@
 module Url
     exposing
         ( Url
+        , Segment
         , toString
         , root
         , append
@@ -14,53 +15,112 @@ module Url
 import String.Extra as String
 
 
-type Part a
-    = Part (a -> String)
+{-| A tiny library for building parameterized URLs. It is intended to be used
+with records to give the parameters names and therefore reducing errors.
+
+    userUrl : Url { id : Int }
+    userUrl = root </> s users </> int .id
+
+    userUrl @ { id = 42 } == "/users/42"
 
 
+# Types
+
+@docs Url, Segment
+
+
+# Builders
+
+@docs root, append, s, int, string, (</>)
+
+
+# Presenting
+
+@docs toString, (@)
+
+-}
+
+
+{-| A URL parameterized over the type `a`, which is typically a record containing
+a field for each parameterized Segment.
+-}
 type Url a
-    = Url (List (Part a))
+    = Url (List (Segment a))
 
 
+{-| A parameteried segment of a URL.
+-}
+type Segment a
+    = Segment (a -> String)
+
+
+{-| Give a string representation of the URL, given a value for the parameter.
+-}
 toString : a -> Url a -> String
-toString p (Url parts) =
+toString p (Url segments) =
     "/"
-        ++ (parts
-                |> List.map (\(Part part) -> part p)
+        ++ (segments
+                |> List.map (\(Segment segment) -> segment p)
                 |> String.join "/"
            )
 
 
+{-| The root URL.
+
+    root |> toString () == "/"
+
+-}
 root : Url a
 root =
     Url []
 
 
-append : Part a -> Url a -> Url a
-append part (Url parts) =
-    Url (parts ++ [ part ])
+{-| Append a segment to the URL.
+-}
+append : Segment a -> Url a -> Url a
+append segment (Url segments) =
+    Url (segments ++ [ segment ])
 
 
-s : String -> Part a
+{-| An unparameterized (static) segment.
+
+    root |> append (s "users") |> toString () == "/users"
+
+-}
+s : String -> Segment a
 s str =
-    Part (\_ -> str)
+    Segment (\_ -> str)
 
 
-int : (a -> Int) -> Part a
+{-| A parameterized (variable) integer segment.
+
+    root |> append (s "users") |> append (int .id) |> toString { id = 42 } == "/users/42"
+
+-}
+int : (a -> Int) -> Segment a
 int extract =
-    Part (\p -> String.fromInt (extract p))
+    Segment (\p -> String.fromInt (extract p))
 
 
-string : (a -> String) -> Part a
+{-| A parameterized string segment.
+
+    root |> append (s "say") |> append (string .word) |> toString { word = "Hello" } == "/say/Hello"
+
+-}
+string : (a -> String) -> Segment a
 string extract =
-    Part extract
+    Segment extract
 
 
-(</>) : Url a -> Part a -> Url a
+{-| Infix version of `append`.
+-}
+(</>) : Url a -> Segment a -> Url a
 (</>) =
     flip append
 
 
+{-| Infix version of `toString` ("evaluate at").
+-}
 (@) : Url a -> a -> String
 (@) =
     flip toString
