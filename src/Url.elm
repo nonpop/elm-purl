@@ -12,9 +12,6 @@ module Url
         , (@)
         )
 
-import String.Extra as String
-
-
 {-| A tiny library for building parameterized URLs. It is intended to be used
 with records to give the parameters names and therefore reducing errors.
 
@@ -39,6 +36,8 @@ with records to give the parameters names and therefore reducing errors.
 @docs toString, (@)
 
 -}
+
+import String.Extra as String
 
 
 {-| A URL parameterized over the type `a`, which is typically a record containing
