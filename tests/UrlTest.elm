@@ -3,6 +3,7 @@ module UrlTest exposing (..)
 import Url exposing ((</>), (@))
 import Expect exposing (Expectation)
 import Fuzz exposing (Fuzzer, list, int, string)
+import String.Extra
 import Test exposing (..)
 
 
@@ -63,4 +64,13 @@ suite =
             \_ ->
                 (Url.root </> Url.s "part" </> Url.int .id @ { id = 42 })
                     |> Expect.equal "/part/42"
+        , test "Can use custom part" <|
+            \_ ->
+                let
+                    idsSegment =
+                        Url.custom (.ids >> List.map String.Extra.fromInt >> String.join ";")
+                in
+                    (Url.root |> Url.append idsSegment)
+                        |> Url.toString { ids = [ 1, 2, 3 ] }
+                        |> Expect.equal "/1;2;3"
         ]

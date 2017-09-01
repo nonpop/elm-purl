@@ -8,6 +8,7 @@ module Url
         , s
         , int
         , string
+        , custom
         , (</>)
         , (@)
         )
@@ -116,6 +117,19 @@ int extract =
 -}
 string : (a -> String) -> Segment a
 string extract =
+    Segment extract
+
+
+{-| Build a custom segment.
+
+    root
+        |> append (custom (.ids >> List.map fromInt >> String.join ";"))
+        |> toString { ids = [1, 2, 3] }
+        == "/1;2;3"
+
+-}
+custom : (a -> String) -> Segment a
+custom extract =
     Segment extract
 
 
