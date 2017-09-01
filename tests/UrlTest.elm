@@ -37,9 +37,9 @@ suite =
                     |> Expect.equal "/part/42"
         , test "Can append variable integer and static part" <|
             \_ ->
-                (Url.root |> Url.append (Url.s "part") |> Url.append (Url.int .id))
+                (Url.root |> Url.append (Url.int .id) |> Url.append (Url.s "part"))
                     |> Url.toString { id = 42 }
-                    |> Expect.equal "/part/42"
+                    |> Expect.equal "/42/part"
         , test "Can append two variable integers" <|
             \_ ->
                 (Url.root |> Url.append (Url.int .id) |> Url.append (Url.int .otherId))
