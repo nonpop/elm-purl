@@ -16,7 +16,7 @@ module Url
 with records to give the parameters names and therefore reducing errors.
 
     userUrl : Url { id : Int }
-    userUrl = root </> s users </> int .id
+    userUrl = root </> s "users" </> int .id
 
     userUrl @ { id = 42 } == "/users/42"
 
@@ -41,7 +41,7 @@ import String.Extra as String
 
 
 {-| A URL parameterized over the type `a`, which is typically a record containing
-a field for each parameterized Segment.
+a field for each parameterized `Segment`.
 -}
 type Url a
     = Url (List (Segment a))
@@ -93,7 +93,11 @@ s str =
 
 {-| A parameterized (variable) integer segment.
 
-    root |> append (s "users") |> append (int .id) |> toString { id = 42 } == "/users/42"
+    root
+        |> append (s "users")
+        |> append (int .id)
+        |> toString { id = 42 }
+        == "/users/42"
 
 -}
 int : (a -> Int) -> Segment a
@@ -103,7 +107,11 @@ int extract =
 
 {-| A parameterized string segment.
 
-    root |> append (s "say") |> append (string .word) |> toString { word = "Hello" } == "/say/Hello"
+    root
+        |> append (s "say")
+        |> append (string .word)
+        |> toString { word = "Hello" }
+        == "/say/Hello"
 
 -}
 string : (a -> String) -> Segment a
