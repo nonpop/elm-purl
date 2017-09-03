@@ -20,7 +20,7 @@ module Url
 with records to give the parameters names and therefore reducing errors.
 
     userUrl : Url { id : Int, show : Bool }
-    userUrl = root </> s "users" </> int .id <?> ("show", show .id)
+    userUrl = root </> s "users" </> int .id <?> ("show", bool .show)
 
     userUrl @ { id = 42, show = True } == "/users/42?show=true"
 
