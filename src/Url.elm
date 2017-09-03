@@ -32,7 +32,7 @@ with records to give the parameters names and therefore reducing errors.
 
 # Builders
 
-@docs root, append, appendParam, s, int, string, bool, custom, (</>), (<?>)
+@docs root, append, s, int, string, bool, custom, appendParam, (</>), (<?>)
 
 
 # Presenting
@@ -167,6 +167,13 @@ custom extract =
 
 
 {-| Append a query parameter to the URL.
+
+    root
+        |> append (s "part")
+        |> appendParam "show" (bool .show)
+        |> toString { show = True }
+        == "/part?show=true"
+
 -}
 appendParam : String -> Part a -> Url a -> Url a
 appendParam name param (Url ( segments, queries )) =
