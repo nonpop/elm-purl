@@ -1,6 +1,6 @@
 module UrlTest exposing (..)
 
-import Url exposing ((</>), (@))
+import Url exposing ((</>), (<?>), (@))
 import Expect exposing (Expectation)
 import Fuzz exposing (Fuzzer, list, int, string)
 import String.Extra
@@ -55,6 +55,11 @@ suite =
                 (Url.root |> Url.append (Url.string .name))
                     |> Url.toString { name = "everything" }
                     |> Expect.equal "/everything"
+        , test "Can append a bool" <|
+            \_ ->
+                (Url.root |> Url.append (Url.bool .show))
+                    |> Url.toString { show = True }
+                    |> Expect.equal "/true"
         , test "Infix append works" <|
             \_ ->
                 (Url.root </> Url.s "part" </> Url.int .id)
@@ -73,4 +78,24 @@ suite =
                     (Url.root |> Url.append idsSegment)
                         |> Url.toString { ids = [ 1, 2, 3 ] }
                         |> Expect.equal "/1;2;3"
+        , test "Can append parameter" <|
+            \_ ->
+                (Url.root |> Url.append (Url.s "part") |> Url.appendParam "id" (Url.int .id))
+                    |> Url.toString { id = 42 }
+                    |> Expect.equal "/part?id=42"
+        , test "Can append two parameters" <|
+            \_ ->
+                (Url.root |> Url.append (Url.s "part") |> Url.appendParam "id" (Url.int .id) |> Url.appendParam "show" (Url.bool .show))
+                    |> Url.toString { id = 42, show = True }
+                    |> Expect.equal "/part?id=42&show=true"
+        , test "Can have static parts, variables, and parameters" <|
+            \_ ->
+                (Url.root |> Url.append (Url.s "part") |> Url.append (Url.int .id) |> Url.appendParam "show" (Url.bool .show))
+                    |> Url.toString { id = 42, show = True }
+                    |> Expect.equal "/part/42?show=true"
+        , test "Infix appendParam works" <|
+            \_ ->
+                (Url.root </> Url.s "part" <?> ( "show", Url.bool .show ))
+                    |> Url.toString { show = False }
+                    |> Expect.equal "/part?show=false"
         ]

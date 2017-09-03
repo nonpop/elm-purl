@@ -1,35 +1,38 @@
 module Url
     exposing
         ( Url
-        , Segment
+        , Part
         , toString
         , root
         , append
         , s
         , int
         , string
+        , bool
         , custom
+        , appendParam
         , (</>)
+        , (<?>)
         , (@)
         )
 
 {-| A tiny library for building parameterized URLs. It is intended to be used
 with records to give the parameters names and therefore reducing errors.
 
-    userUrl : Url { id : Int }
-    userUrl = root </> s "users" </> int .id
+    userUrl : Url { id : Int, show : Bool }
+    userUrl = root </> s "users" </> int .id <?> ("show", show .id)
 
-    userUrl @ { id = 42 } == "/users/42"
+    userUrl @ { id = 42, show = True } == "/users/42?show=true"
 
 
 # Types
 
-@docs Url, Segment
+@docs Url, Part
 
 
 # Builders
 
-@docs root, append, s, int, string, custom, (</>)
+@docs root, append, appendParam, s, int, string, bool, custom, (</>), (<?>)
 
 
 # Presenting
@@ -42,27 +45,37 @@ import String.Extra as String
 
 
 {-| A URL parameterized over the type `a`, which is typically a record containing
-a field for each parameterized `Segment`.
+a field for each parameterized `Part`.
 -}
 type Url a
-    = Url (List (Segment a))
+    = Url ( List (Part a), List ( String, Part a ) )
 
 
-{-| A parameterized segment of a URL.
+{-| A parameterized part (segment or query value) of a URL.
 -}
-type Segment a
-    = Segment (a -> String)
+type Part a
+    = Part (a -> String)
 
 
 {-| Give a string representation of the URL, given a value for the parameter.
 -}
 toString : a -> Url a -> String
-toString p (Url segments) =
-    "/"
-        ++ (segments
-                |> List.map (\(Segment segment) -> segment p)
+toString p (Url ( segments, queries )) =
+    let
+        path =
+            segments
+                |> List.map (\(Part segment) -> segment p)
                 |> String.join "/"
-           )
+
+        query =
+            queries
+                |> List.map (\( name, Part query ) -> name ++ "=" ++ query p)
+                |> String.join "&"
+    in
+        if String.isEmpty query then
+            "/" ++ path
+        else
+            "/" ++ path ++ "?" ++ query
 
 
 {-| The root URL.
@@ -72,27 +85,27 @@ toString p (Url segments) =
 -}
 root : Url a
 root =
-    Url []
+    Url ( [], [] )
 
 
 {-| Append a segment to the URL.
 -}
-append : Segment a -> Url a -> Url a
-append segment (Url segments) =
-    Url (segments ++ [ segment ])
+append : Part a -> Url a -> Url a
+append segment (Url ( segments, queries )) =
+    Url ( segments ++ [ segment ], queries )
 
 
-{-| An unparameterized (static) segment.
+{-| An unparameterized (static) part.
 
     root |> append (s "users") |> toString () == "/users"
 
 -}
-s : String -> Segment a
+s : String -> Part a
 s str =
-    Segment (\_ -> str)
+    Part (\_ -> str)
 
 
-{-| A parameterized (variable) integer segment.
+{-| A parameterized (variable) integer part.
 
     root
         |> append (s "users")
@@ -101,12 +114,12 @@ s str =
         == "/users/42"
 
 -}
-int : (a -> Int) -> Segment a
+int : (a -> Int) -> Part a
 int extract =
-    Segment (\p -> String.fromInt (extract p))
+    Part (\p -> String.fromInt (extract p))
 
 
-{-| A parameterized string segment.
+{-| A parameterized string part.
 
     root
         |> append (s "say")
@@ -115,12 +128,32 @@ int extract =
         == "/say/Hello"
 
 -}
-string : (a -> String) -> Segment a
+string : (a -> String) -> Part a
 string extract =
-    Segment extract
+    Part extract
 
 
-{-| Build a custom segment.
+{-| A parameterized boolean part.
+
+    root
+        |> append (bool .show)
+        |> toString { show = True }
+        == "/true"
+
+-}
+bool : (a -> Bool) -> Part a
+bool extract =
+    let
+        fromBool b =
+            if b then
+                "true"
+            else
+                "false"
+    in
+        Part (\p -> fromBool (extract p))
+
+
+{-| Build a custom part.
 
     root
         |> append (custom (.ids >> List.map fromInt >> String.join ";"))
@@ -128,16 +161,30 @@ string extract =
         == "/1;2;3"
 
 -}
-custom : (a -> String) -> Segment a
+custom : (a -> String) -> Part a
 custom extract =
-    Segment extract
+    Part extract
+
+
+{-| Append a query parameter to the URL.
+-}
+appendParam : String -> Part a -> Url a -> Url a
+appendParam name param (Url ( segments, queries )) =
+    Url ( segments, queries ++ [ ( name, param ) ] )
 
 
 {-| Infix version of `append`.
 -}
-(</>) : Url a -> Segment a -> Url a
+(</>) : Url a -> Part a -> Url a
 (</>) =
     flip append
+
+
+{-| Infix version of `appendParam`
+-}
+(<?>) : Url a -> ( String, Part a ) -> Url a
+(<?>) url ( name, param ) =
+    appendParam name param url
 
 
 {-| Infix version of `toString` ("evaluate at").
