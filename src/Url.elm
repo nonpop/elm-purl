@@ -22,7 +22,7 @@ with records to give the parameters names and therefore reducing errors.
     userUrl : Url { id : Int, show : Bool }
     userUrl = root </> s "users" </> int .id <?> ("show", bool .show)
 
-    userUrl @ { id = 42, show = True } == "/users/42?show=true"
+    userUrl @ { id = 42, show = True } --> "/users/42?show=true"
 
 
 # Types
@@ -80,7 +80,7 @@ toString p (Url ( segments, queries )) =
 
 {-| The root URL.
 
-    root |> toString () == "/"
+    root |> Url.toString () --> "/"
 
 -}
 root : Url a
@@ -97,7 +97,7 @@ append segment (Url ( segments, queries )) =
 
 {-| An unparameterized (static) part.
 
-    root |> append (s "users") |> toString () == "/users"
+    root |> append (s "users") |> Url.toString () --> "/users"
 
 -}
 s : String -> Part a
@@ -110,8 +110,8 @@ s str =
     root
         |> append (s "users")
         |> append (int .id)
-        |> toString { id = 42 }
-        == "/users/42"
+        |> Url.toString { id = 42 }
+        --> "/users/42"
 
 -}
 int : (a -> Int) -> Part a
@@ -124,8 +124,8 @@ int extract =
     root
         |> append (s "say")
         |> append (string .word)
-        |> toString { word = "Hello" }
-        == "/say/Hello"
+        |> Url.toString { word = "Hello" }
+        --> "/say/Hello"
 
 -}
 string : (a -> String) -> Part a
@@ -137,8 +137,8 @@ string extract =
 
     root
         |> append (bool .show)
-        |> toString { show = True }
-        == "/true"
+        |> Url.toString { show = True }
+        --> "/true"
 
 -}
 bool : (a -> Bool) -> Part a
@@ -155,10 +155,12 @@ bool extract =
 
 {-| Build a custom part.
 
+    import String.Extra exposing (fromInt)
+
     root
         |> append (custom (.ids >> List.map fromInt >> String.join ";"))
-        |> toString { ids = [1, 2, 3] }
-        == "/1;2;3"
+        |> Url.toString { ids = [1, 2, 3] }
+        --> "/1;2;3"
 
 -}
 custom : (a -> String) -> Part a
@@ -171,8 +173,8 @@ custom extract =
     root
         |> append (s "part")
         |> appendParam "show" (bool .show)
-        |> toString { show = True }
-        == "/part?show=true"
+        |> Url.toString { show = True }
+        --> "/part?show=true"
 
 -}
 appendParam : String -> Part a -> Url a -> Url a
@@ -194,7 +196,7 @@ appendParam name param (Url ( segments, queries )) =
     appendParam name param url
 
 
-{-| Infix version of `toString` ("evaluate at").
+{-| Infix version of `Url.toString` ("evaluate at").
 -}
 (@) : Url a -> a -> String
 (@) =
