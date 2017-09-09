@@ -2,7 +2,6 @@ module Test.Url exposing (..)
 
 import Url exposing ((</>), (<?>), (@))
 import Expect exposing (Expectation)
-import Fuzz exposing (Fuzzer, list, int, string)
 import String.Extra
 import Test exposing (..)
 
