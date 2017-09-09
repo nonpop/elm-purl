@@ -1,4 +1,4 @@
-module UrlTest exposing (..)
+module Test.Url exposing (..)
 
 import Url exposing ((</>), (<?>), (@))
 import Expect exposing (Expectation)
