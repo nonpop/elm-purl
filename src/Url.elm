@@ -41,6 +41,7 @@ with records to give the parameters names and therefore reducing errors.
 
 -}
 
+import Http
 import String.Extra as String
 
 
@@ -64,12 +65,12 @@ toString p (Url ( segments, queries )) =
     let
         path =
             segments
-                |> List.map (\(Part segment) -> segment p)
+                |> List.map (\(Part segment) -> Http.encodeUri (segment p))
                 |> String.join "/"
 
         query =
             queries
-                |> List.map (\( name, Part query ) -> name ++ "=" ++ query p)
+                |> List.map (\( name, Part query ) -> Http.encodeUri name ++ "=" ++ Http.encodeUri (query p))
                 |> String.join "&"
     in
         if String.isEmpty query then

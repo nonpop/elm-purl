@@ -2,6 +2,7 @@ module Test.Url exposing (..)
 
 import Url exposing ((</>), (<?>), (@))
 import Expect exposing (Expectation)
+import Http
 import String.Extra
 import Test exposing (..)
 
@@ -76,7 +77,7 @@ suite =
                 in
                     (Url.root |> Url.append idsSegment)
                         |> Url.toString { ids = [ 1, 2, 3 ] }
-                        |> Expect.equal "/1;2;3"
+                        |> Expect.equal ("/" ++ Http.encodeUri "1;2;3")
         , test "Can append parameter" <|
             \_ ->
                 (Url.root |> Url.append (Url.s "part") |> Url.appendParam "id" (Url.int .id))
