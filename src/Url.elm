@@ -65,9 +65,9 @@ toString p (Url ( segments, queries )) =
     let
         path =
             segments
-                |> List.map
-                    (\(Part segment) ->
-                        if segment p == "#" then
+                |> List.indexedMap
+                    (\i (Part segment) ->
+                        if i == 0 && segment p == "#" then
                             "#"
                         else
                             Http.encodeUri (segment p)
