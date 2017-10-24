@@ -161,7 +161,7 @@ bool extract =
     root
         |> append (custom (.ids >> List.map fromInt >> String.join ";"))
         |> Url.toString { ids = [1, 2, 3] }
-        --> "/1;2;3"
+        --> "/1%3B2%3B3"
 
 -}
 custom : (a -> String) -> Part a
