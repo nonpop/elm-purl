@@ -65,7 +65,13 @@ toString p (Url ( segments, queries )) =
     let
         path =
             segments
-                |> List.map (\(Part segment) -> Http.encodeUri (segment p))
+                |> List.map
+                    (\(Part segment) ->
+                        if segment p == "#" then
+                            "#"
+                        else
+                            Http.encodeUri (segment p)
+                    )
                 |> String.join "/"
 
         query =
