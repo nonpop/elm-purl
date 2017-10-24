@@ -1,5 +1,5 @@
 {
-    "version": "2.0.1",
+    "version": "3.0.0",
     "summary": "A tiny library for building parameterized URLs",
     "repository": "https://github.com/nonpop/elm-purl.git",
     "license": "BSD3",
