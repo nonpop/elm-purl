@@ -9,9 +9,11 @@ module Url
         , int
         , string
         , bool
+        , hash
         , custom
         , appendParam
         , (</>)
+        , (<#>)
         , (<?>)
         , (@)
         )
@@ -55,7 +57,7 @@ type Url a
 {-| A parameterized part (segment or query value) of a URL.
 -}
 type Part a
-    = Part (a -> String)
+    = Part { toString : a -> String, skipUriEncode : Bool }
 
 
 {-| Give a string representation of the URL, given a value for the parameter.
@@ -65,18 +67,26 @@ toString p (Url ( segments, queries )) =
     let
         path =
             segments
-                |> List.indexedMap
-                    (\i (Part segment) ->
-                        if i == 0 && segment p == "#" then
-                            "#"
+                |> List.map
+                    (\(Part { toString, skipUriEncode }) ->
+                        if skipUriEncode then
+                            toString p
                         else
-                            Http.encodeUri (segment p)
+                            Http.encodeUri (toString p)
                     )
                 |> String.join "/"
 
         query =
             queries
-                |> List.map (\( name, Part query ) -> Http.encodeUri name ++ "=" ++ Http.encodeUri (query p))
+                |> List.map
+                    (\( name, Part { toString, skipUriEncode } ) ->
+                        Http.encodeUri name
+                            ++ "="
+                            ++ if skipUriEncode then
+                                toString p
+                               else
+                                Http.encodeUri (toString p)
+                    )
                 |> String.join "&"
     in
         if String.isEmpty query then
@@ -109,7 +119,7 @@ append segment (Url ( segments, queries )) =
 -}
 s : String -> Part a
 s str =
-    Part (\_ -> str)
+    Part { toString = \_ -> str, skipUriEncode = False }
 
 
 {-| A parameterized (variable) integer part.
@@ -123,7 +133,7 @@ s str =
 -}
 int : (a -> Int) -> Part a
 int extract =
-    Part (\p -> String.fromInt (extract p))
+    Part { toString = \p -> String.fromInt (extract p), skipUriEncode = False }
 
 
 {-| A parameterized string part.
@@ -137,7 +147,7 @@ int extract =
 -}
 string : (a -> String) -> Part a
 string extract =
-    Part extract
+    Part { toString = extract, skipUriEncode = False }
 
 
 {-| A parameterized boolean part.
@@ -157,7 +167,22 @@ bool extract =
             else
                 "false"
     in
-        Part (\p -> fromBool (extract p))
+        Part { toString = \p -> fromBool (extract p), skipUriEncode = False }
+
+
+{-| A hash-only part.
+
+    root
+        |> append (s "base")
+        |> append hash
+        |> append (s "page")
+        |> Url.toString {}
+        --> "/base/#/page"
+
+-}
+hash : Part a
+hash =
+    Part { toString = \_ -> "#", skipUriEncode = True }
 
 
 {-| Build a custom part.
@@ -172,7 +197,7 @@ bool extract =
 -}
 custom : (a -> String) -> Part a
 custom extract =
-    Part extract
+    Part { toString = extract, skipUriEncode = False }
 
 
 {-| Append a query parameter to the URL.
@@ -194,6 +219,18 @@ appendParam name param (Url ( segments, queries )) =
 (</>) : Url a -> Part a -> Url a
 (</>) =
     flip append
+
+
+{-| Infix operator to inject a hash.
+
+    root </> s "base" <#> s "page" </> int .page
+        |> Url.toString { page = 42 }
+    --> "/base/#/page/42"
+
+-}
+(<#>) : Url a -> Part a -> Url a
+(<#>) base next =
+    base </> hash </> next
 
 
 {-| Infix version of `appendParam`
