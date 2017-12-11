@@ -34,7 +34,7 @@ with records to give the parameters names and therefore reducing errors.
 
 # Builders
 
-@docs root, append, s, int, string, bool, custom, appendParam, (</>), (<?>)
+@docs root, append, s, int, string, bool, hash, custom, appendParam, (</>), (<#>), (<?>)
 
 
 # Presenting
