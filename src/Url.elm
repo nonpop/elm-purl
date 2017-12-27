@@ -26,6 +26,15 @@ with records to give the parameters names and therefore reducing errors.
 
     userUrl @ { id = 42, show = True } --> "/users/42?show=true"
 
+    userUrlWithoutInfix : Url { id : Int, show : Bool }
+    userUrlWithoutInfix = root
+        |> append (s "users")
+        |> append (int .id)
+        |> appendParam "show" (bool .show)
+
+    userUrlWithoutInfix
+        |> Url.toString { id = 42, show = True } --> "/users/42?show=true"
+
 
 # Types
 

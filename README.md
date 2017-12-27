@@ -33,7 +33,7 @@ userUrl : Url { id : Int }
 userUrl = root 
   |> append (s "users") 
   |> append (int .id)
-  |> appendParam ("show", bool .show)
+  |> appendParam "show" (bool .show)
 
 userUrl 
   |> Url.toString { id = 42, show = True } == "/users/42?show=true"
