@@ -69,39 +69,83 @@ type Part a
     = Part { toString : a -> String, skipUriEncode : Bool }
 
 
+{-| URL-encode the given String if the Bool is True; otherwise, do nothing to
+it.
+
+    encodeUriPart True "a b" == "a%20b"
+    encodeUriPart False "a b" == "a b"
+
+-}
+encodeUriPart : Bool -> String -> String
+encodeUriPart encode =
+    if encode then
+        identity
+    else
+        Http.encodeUri
+
+
+{-| Extract the given Part from the given record.
+
+    extractPart { a = "b c" } (Part { toString = .a, skipUriEncode = False})
+        == "b%20c"
+    extractPart { a = "b c" } (Part { toString = .a, skipUriEncode = True})
+        == "b c"
+
+-}
+extractPart : a -> Part a -> String
+extractPart p (Part { toString, skipUriEncode }) =
+    p
+        |> encodeUriPart skipUriEncode
+        << toString
+
+
+{-| Extract from a record and format a Part for a path.
+-}
+pathPartToString : a -> Part a -> String
+pathPartToString =
+    extractPart
+
+
+{-| Extract from a record and format a Part for a query.
+
+    queryPartToString
+        ("a b", { c = "d e" } )
+        (Part { toString = .a, skipUriEncode = False})
+        == "a%20b=c%20d"
+    queryPartToString
+        ("a b", { c = "d e" } )
+        (Part { toString = .a, skipUriEncode = True})
+        == "a%20b=c d"
+
+-}
+queryPartToString : a -> ( String, Part a ) -> String
+queryPartToString p ( name, part ) =
+    Http.encodeUri name ++ "=" ++ (extractPart p part)
+
+
+{-| Reads all of the Parts from the record and concatenates them with the
+supplied separator.
+-}
+readAndCombineParts : (a -> b -> String) -> a -> String -> List b -> String
+readAndCombineParts mapper p separator =
+    String.join separator << List.map (mapper p)
+
+
 {-| Give a string representation of the URL, given a value for the parameter.
 -}
 toString : a -> Url a -> String
 toString p (Url ( segments, queries )) =
     let
         path =
-            segments
-                |> List.map
-                    (\(Part { toString, skipUriEncode }) ->
-                        if skipUriEncode then
-                            toString p
-                        else
-                            Http.encodeUri (toString p)
-                    )
-                |> String.join "/"
+            "/" ++ (readAndCombineParts pathPartToString p "/" segments)
 
         query =
-            queries
-                |> List.map
-                    (\( name, Part { toString, skipUriEncode } ) ->
-                        Http.encodeUri name
-                            ++ "="
-                            ++ if skipUriEncode then
-                                toString p
-                               else
-                                Http.encodeUri (toString p)
-                    )
-                |> String.join "&"
+            readAndCombineParts queryPartToString p "&" queries
     in
         if String.isEmpty query then
-            "/" ++ path
+            path
         else
-            "/" ++ path ++ "?" ++ query
+            path ++ "?" ++ query
 
 
 {-| The root URL.
@@ -121,6 +165,34 @@ append segment (Url ( segments, queries )) =
     Url ( segments ++ [ segment ], queries )
 
 
+{-| Build a custom part.
+
+    import String.Extra exposing (fromInt)
+
+    root
+        |> append (custom (.ids >> List.map fromInt >> String.join ";"))
+        |> Url.toString { ids = [1, 2, 3] }
+        --> "/1%3B2%3B3"
+
+-}
+custom : (a -> String) -> Part a
+custom extract =
+    Part { toString = extract, skipUriEncode = False }
+
+
+{-| Build a custom part without URL-encoding.
+
+    root
+        |> append (custom (.ids >> String.join ";"))
+        |> Url.toString { ids = ["1", "2 3", "4"] }
+        == "/1;2 3;4"
+
+-}
+customRaw : (a -> String) -> Part a
+customRaw extract =
+    Part { toString = extract, skipUriEncode = True }
+
+
 {-| An unparameterized (static) part.
 
     root |> append (s "users") |> Url.toString () --> "/users"
@@ -128,7 +200,7 @@ append segment (Url ( segments, queries )) =
 -}
 s : String -> Part a
 s str =
-    Part { toString = \_ -> str, skipUriEncode = False }
+    custom (always str)
 
 
 {-| A parameterized (variable) integer part.
@@ -142,7 +214,7 @@ s str =
 -}
 int : (a -> Int) -> Part a
 int extract =
-    Part { toString = \p -> String.fromInt (extract p), skipUriEncode = False }
+    custom (String.fromInt << extract)
 
 
 {-| A parameterized string part.
@@ -155,8 +227,8 @@ int extract =
 
 -}
 string : (a -> String) -> Part a
-string extract =
-    Part { toString = extract, skipUriEncode = False }
+string =
+    custom
 
 
 {-| A parameterized boolean part.
@@ -176,7 +248,7 @@ bool extract =
             else
                 "false"
     in
-        Part { toString = \p -> fromBool (extract p), skipUriEncode = False }
+        custom (fromBool << extract)
 
 
 {-| A hash-only part.
@@ -191,22 +263,7 @@ bool extract =
 -}
 hash : Part a
 hash =
-    Part { toString = \_ -> "#", skipUriEncode = True }
-
-
-{-| Build a custom part.
-
-    import String.Extra exposing (fromInt)
-
-    root
-        |> append (custom (.ids >> List.map fromInt >> String.join ";"))
-        |> Url.toString { ids = [1, 2, 3] }
-        --> "/1%3B2%3B3"
-
--}
-custom : (a -> String) -> Part a
-custom extract =
-    Part { toString = extract, skipUriEncode = False }
+    customRaw (always "#")
 
 
 {-| Append a query parameter to the URL.
