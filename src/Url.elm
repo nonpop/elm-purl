@@ -74,16 +74,15 @@ type Part a
     = Part { toString : a -> Maybe String, skipUriEncode : Bool }
 
 
-{-| URL-encode the given String if the Bool is True; otherwise, do nothing to
-it.
+{-| URL-encode the given String unless skipEncode is True, in which case do nothing.
 
-    encodeUriPart True "a b" == "a%20b"
-    encodeUriPart False "a b" == "a b"
+    encodeUriPart False "a b" == "a%20b"
+    encodeUriPart True "a b" == "a b"
 
 -}
 encodeUriPart : Bool -> String -> String
-encodeUriPart encode =
-    if encode then
+encodeUriPart skipEncode =
+    if skipEncode then
         identity
     else
         Http.encodeUri
@@ -107,7 +106,7 @@ encodeUriPart encode =
 -}
 extractPart : a -> Part a -> Maybe String
 extractPart p (Part { toString, skipUriEncode }) =
-      Maybe.map (encodeUriPart skipUriEncode) (toString p)
+    Maybe.map (encodeUriPart skipUriEncode) (toString p)
 
 
 {-| Extract from a record and format a Part for a path.
@@ -190,6 +189,7 @@ return value is an equivalent function sans Maybe.
 
     fromMaybe maybeCustom == custom
     fromMaybe maybeInt == int
+
 -}
 fromMaybe : ((a -> Maybe b) -> Part a) -> (a -> b) -> Part a
 fromMaybe f =
