@@ -1,44 +1,20 @@
-module Url
-    exposing
-        ( Url
-        , Part
-        , toString
-        , root
-        , append
-        , s
-        , maybeS
-        , int
-        , maybeInt
-        , string
-        , maybeString
-        , bool
-        , maybeBool
-        , hash
-        , custom
-        , maybeCustom
-        , appendParam
-        , (</>)
-        , (<#>)
-        , (<?>)
-        , (@)
-        )
+module Purl exposing
+    ( Url, Part
+    , root, append, s, maybeS, int, maybeInt, string, maybeString, bool, maybeBool, hash, custom, maybeCustom, appendParam
+    , toString
+    )
 
 {-| A tiny library for building parameterized URLs. It is intended to be used
 with records to give the parameters names and therefore reducing errors.
 
     userUrl : Url { id : Int, show : Bool }
-    userUrl = root </> s "users" </> int .id <?> ("show", bool .show)
-
-    userUrl @ { id = 42, show = True } --> "/users/42?show=true"
-
-    userUrlWithoutInfix : Url { id : Int, show : Bool }
-    userUrlWithoutInfix = root
+    userUrl = root
         |> append (s "users")
         |> append (int .id)
         |> appendParam "show" (bool .show)
 
-    userUrlWithoutInfix
-        |> Url.toString { id = 42, show = True } --> "/users/42?show=true"
+    userUrl
+        |> Purl.toString { id = 42, show = True } --> "/users/42?show=true"
 
 
 # Types
@@ -48,17 +24,16 @@ with records to give the parameters names and therefore reducing errors.
 
 # Builders
 
-@docs root, append, s, maybeS, int, maybeInt, string, maybeString, bool, maybeBool, hash, custom, maybeCustom, appendParam, (</>), (<#>), (<?>)
+@docs root, append, s, maybeS, int, maybeInt, string, maybeString, bool, maybeBool, hash, custom, maybeCustom, appendParam
 
 
 # Presenting
 
-@docs toString, (@)
+@docs toString
 
 -}
 
-import Http
-import String.Extra as String
+import Url
 
 
 {-| A URL parameterized over the type `a`, which is typically a record containing
@@ -71,12 +46,13 @@ type Url a
 {-| A parameterized part (segment or query value) of a URL.
 -}
 type Part a
-    = Part { toString : a -> Maybe String, skipUriEncode : Bool }
+    = Part { stringify : a -> Maybe String, skipUriEncode : Bool }
 
 
 {-| URL-encode the given String unless skipEncode is True, in which case do nothing.
 
     encodeUriPart False "a b" == "a%20b"
+
     encodeUriPart True "a b" == "a b"
 
 -}
@@ -84,8 +60,9 @@ encodeUriPart : Bool -> String -> String
 encodeUriPart skipEncode =
     if skipEncode then
         identity
+
     else
-        Http.encodeUri
+        Url.percentEncode
 
 
 {-| Extract the given Part from the given record.
@@ -105,8 +82,8 @@ encodeUriPart skipEncode =
 
 -}
 extractPart : a -> Part a -> Maybe String
-extractPart p (Part { toString, skipUriEncode }) =
-    Maybe.map (encodeUriPart skipUriEncode) (toString p)
+extractPart p (Part { stringify, skipUriEncode }) =
+    Maybe.map (encodeUriPart skipUriEncode) (stringify p)
 
 
 {-| Extract from a record and format a Part for a path.
@@ -119,26 +96,29 @@ pathPartToString =
 {-| Extract from a record and format a Part for a query.
 
     queryPartToString
-        ("a b", { c = "d e" } )
-        (Part { toString = .a >> Just, skipUriEncode = False})
+        ( "a b", { c = "d e" } )
+        (Part { toString = .a >> Just, skipUriEncode = False })
         == Just "a%20b=c%20d"
+
     queryPartToString
-        ("a b", { c = "d e" } )
-        (Part { toString = .a >> Just, skipUriEncode = True})
+        ( "a b", { c = "d e" } )
+        (Part { toString = .a >> Just, skipUriEncode = True })
         == Just "a%20b=c d"
+
     queryPartToString
-        ("a b", { c = Just "d e" } )
-        (Part { toString = .a, skipUriEncode = False})
+        ( "a b", { c = Just "d e" } )
+        (Part { toString = .a, skipUriEncode = False })
         == Just "a%20b=c%20d"
+
     queryPartToString
-        ("a b", { c = Nothing } )
-        (Part { toString = .a, skipUriEncode = False})
+        ( "a b", { c = Nothing } )
+        (Part { toString = .a, skipUriEncode = False })
         == Nothing
 
 -}
 queryPartToString : a -> ( String, Part a ) -> Maybe String
 queryPartToString p ( name, part ) =
-    Maybe.map ((++) (Http.encodeUri name ++ "=")) (extractPart p part)
+    Maybe.map ((++) (Url.percentEncode name ++ "=")) (extractPart p part)
 
 
 {-| Reads all of the Parts from the record and concatenates them with the
@@ -155,20 +135,21 @@ toString : a -> Url a -> String
 toString p (Url ( segments, queries )) =
     let
         path =
-            "/" ++ (readAndCombineParts pathPartToString p "/" segments)
+            "/" ++ readAndCombineParts pathPartToString p "/" segments
 
         query =
             readAndCombineParts queryPartToString p "&" queries
     in
-        if String.isEmpty query then
-            path
-        else
-            path ++ "?" ++ query
+    if String.isEmpty query then
+        path
+
+    else
+        path ++ "?" ++ query
 
 
 {-| The root URL.
 
-    root |> Url.toString () --> "/"
+    root |> Purl.toString () --> "/"
 
 -}
 root : Url a
@@ -188,37 +169,34 @@ co-domain of Maybe b is supplied (such as maybeCustom and maybeInt), then the
 return value is an equivalent function sans Maybe.
 
     fromMaybe maybeCustom == custom
+
     fromMaybe maybeInt == int
 
 -}
 fromMaybe : ((a -> Maybe b) -> Part a) -> (a -> b) -> Part a
 fromMaybe f =
-    f << ((<<) Just)
+    f << (<<) Just
 
 
 {-| Build a custom part with a Maybe value; it is omitted when the value is
 Nothing.
 
-    import String.Extra exposing (fromInt)
-
     root
-        |> append (custom (.ids >> List.map fromInt >> String.join ";" >> Just))
-        |> Url.toString { ids = [1, 2, 3] }
+        |> append (custom (.ids >> List.map String.fromInt >> String.join ";" >> Just))
+        |> Purl.toString { ids = [ 1, 2, 3 ] }
         == "/1%3B2%3B3"
 
 -}
 maybeCustom : (a -> Maybe String) -> Part a
 maybeCustom extract =
-    Part { toString = extract, skipUriEncode = False }
+    Part { stringify = extract, skipUriEncode = False }
 
 
 {-| Build a custom part.
 
-    import String.Extra exposing (fromInt)
-
     root
-        |> append (custom (.ids >> List.map fromInt >> String.join ";"))
-        |> Url.toString { ids = [1, 2, 3] }
+        |> append (custom (.ids >> List.map String.fromInt >> String.join ";"))
+        |> Purl.toString { ids = [1, 2, 3] }
         --> "/1%3B2%3B3"
 
 -}
@@ -232,20 +210,20 @@ omitted when the value is Nothing.
 
     root
         |> append (custom (.ids >> String.join ";" >> Just))
-        |> Url.toString { ids = ["1", "2 3", "4"] }
+        |> Purl.toString { ids = [ "1", "2 3", "4" ] }
         == "/1;2 3;4"
 
 -}
 maybeCustomRaw : (a -> Maybe String) -> Part a
 maybeCustomRaw extract =
-    Part { toString = extract, skipUriEncode = True }
+    Part { stringify = extract, skipUriEncode = True }
 
 
 {-| Build a custom part without URL-encoding.
 
     root
         |> append (custom (.ids >> String.join ";"))
-        |> Url.toString { ids = ["1", "2 3", "4"] }
+        |> Purl.toString { ids = [ "1", "2 3", "4" ] }
         == "/1;2 3;4"
 
 -}
@@ -261,7 +239,8 @@ value is Nothing.
         |> append (maybeS (Just "users"))
         |> append (maybeS Nothing)
         |> append (maybeS (Just "1"))
-        |> Url.toString () == "/users/1"
+        |> Purl.toString ()
+        == "/users/1"
 
 -}
 maybeS : Maybe String -> Part a
@@ -271,7 +250,7 @@ maybeS =
 
 {-| An unparameterized (static) part.
 
-    root |> append (s "users") |> Url.toString () --> "/users"
+    root |> append (s "users") |> Purl.toString () --> "/users"
 
 -}
 s : String -> Part a
@@ -288,8 +267,8 @@ when the value is Nothing.
             |> append (maybeInt .id)
             |> append (s "images")
 
-    Url.toString { id = Just 42 } url == "/users/42/images"
-    Url.toString { id = Nothing } url == "/users/images"
+    Purl.toString { id = Just 42 } url == "/users/42/images"
+    Purl.toString { id = Nothing } url == "/users/images"
 
 -}
 maybeInt : (a -> Maybe Int) -> Part a
@@ -302,7 +281,7 @@ maybeInt extract =
     root
         |> append (s "users")
         |> append (int .id)
-        |> Url.toString { id = 42 }
+        |> Purl.toString { id = 42 }
         --> "/users/42"
 
 -}
@@ -320,8 +299,8 @@ is Nothing.
             |> append (maybeString .word)
             |> append (s "world")
 
-    Url.toString { word = Just "Hello" } url == "/say/Hello/world"
-    Url.toString { word = Nothing } url == "/say/world"
+    Purl.toString { word = Just "Hello" } url == "/say/Hello/world"
+    Purl.toString { word = Nothing } url == "/say/world"
 
 -}
 maybeString : (a -> Maybe String) -> Part a
@@ -334,7 +313,7 @@ maybeString =
     root
         |> append (s "say")
         |> append (string .word)
-        |> Url.toString { word = "Hello" }
+        |> Purl.toString { word = "Hello" }
         --> "/say/Hello"
 
 -}
@@ -350,8 +329,8 @@ value is Nothing.
         root
             |> append (maybeBool .show)
 
-    Url.toString { show = Just True } url == "/true"
-    Url.toString { show = Nothing } url == "/"
+    Purl.toString { show = Just True } url == "/true"
+    Purl.toString { show = Nothing } url == "/"
 
 -}
 maybeBool : (a -> Maybe Bool) -> Part a
@@ -360,17 +339,18 @@ maybeBool extract =
         fromBool b =
             if b then
                 "true"
+
             else
                 "false"
     in
-        maybeCustom (Maybe.map fromBool << extract)
+    maybeCustom (Maybe.map fromBool << extract)
 
 
 {-| A parameterized boolean part.
 
     root
         |> append (bool .show)
-        |> Url.toString { show = True }
+        |> Purl.toString { show = True }
         --> "/true"
 
 -}
@@ -385,7 +365,7 @@ bool =
         |> append (s "base")
         |> append hash
         |> append (s "page")
-        |> Url.toString {}
+        |> Purl.toString {}
         --> "/base/#/page"
 
 -}
@@ -399,43 +379,10 @@ hash =
     root
         |> append (s "part")
         |> appendParam "show" (bool .show)
-        |> Url.toString { show = True }
+        |> Purl.toString { show = True }
         --> "/part?show=true"
 
 -}
 appendParam : String -> Part a -> Url a -> Url a
 appendParam name param (Url ( segments, queries )) =
     Url ( segments, queries ++ [ ( name, param ) ] )
-
-
-{-| Infix version of `append`.
--}
-(</>) : Url a -> Part a -> Url a
-(</>) =
-    flip append
-
-
-{-| Infix operator to inject a hash.
-
-    root </> s "base" <#> s "page" </> int .page
-        |> Url.toString { page = 42 }
-    --> "/base/#/page/42"
-
--}
-(<#>) : Url a -> Part a -> Url a
-(<#>) base next =
-    base </> hash </> next
-
-
-{-| Infix version of `appendParam`
--}
-(<?>) : Url a -> ( String, Part a ) -> Url a
-(<?>) url ( name, param ) =
-    appendParam name param url
-
-
-{-| Infix version of `Url.toString` ("evaluate at").
--}
-(@) : Url a -> a -> String
-(@) =
-    flip toString
