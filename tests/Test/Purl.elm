@@ -134,9 +134,9 @@ suite =
                     |> Expect.equal "/part?id=42"
         , test "Can have static parts, variables, and parameters" <|
             \_ ->
-                (Purl.root |> Purl.s "part" |> Purl.int .id |> Purl.boolParam "show" .show)
-                    |> Purl.toString { id = 42, show = True }
-                    |> Expect.equal "/part/42?show=true"
+                (Purl.root |> Purl.s "part" |> Purl.int .id |> Purl.stringParam "msg" .msg)
+                    |> Purl.toString { id = 42, msg = "hello" }
+                    |> Expect.equal "/part/42?msg=hello"
         , test "Can have a hash" <|
             \_ ->
                 (Purl.root |> Purl.s "part1" |> Purl.hash |> Purl.s "part2")

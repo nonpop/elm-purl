@@ -2,7 +2,7 @@ module Purl exposing
     ( Url
     , root, s, maybeS, hash
     , int, maybeInt, string, maybeString, bool, maybeBool, custom, maybeCustom
-    , intParam, maybeIntParam, boolParam, maybeBoolParam, customParam, maybeCustomParam
+    , intParam, maybeIntParam, stringParam, maybeStringParam, boolParam, maybeBoolParam, customParam, maybeCustomParam
     , toString
     )
 
@@ -326,6 +326,37 @@ maybeString =
 string : (a -> String) -> Url a -> Url a
 string =
     custom
+
+
+{-| Append a parameterized string parameter with a Maybe value; it is omitted when the value
+is Nothing.
+
+    url =
+        root
+            |> s "say"
+            |> maybeStringParam "word" .word
+
+    toString { word = Just "Hello" } url == "/say?word=Hello"
+    toString { word = Nothing } url == "/say"
+
+-}
+maybeStringParam : String -> (a -> Maybe String) -> Url a -> Url a
+maybeStringParam =
+    maybeCustomParam
+
+
+{-| Append a parameterized string parameter.
+
+    root
+        |> s "say"
+        |> stringParam "word" .word
+        |> toString { word = "Hello" }
+        --> "/say?word=Hello"
+
+-}
+stringParam : String -> (a -> String) -> Url a -> Url a
+stringParam =
+    customParam
 
 
 boolToString : Bool -> String
