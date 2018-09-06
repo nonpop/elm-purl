@@ -119,22 +119,22 @@ suite =
                     |> Expect.equal ("/" ++ Url.percentEncode "1;3")
         , test "Can append parameter" <|
             \_ ->
-                (Purl.root |> Purl.s "part" |> Purl.intParam "id" .id)
+                (Purl.root |> Purl.s "part" |> Purl.intQuery "id" .id)
                     |> Purl.toString { id = 42 }
                     |> Expect.equal "/part?id=42"
         , test "Can append two parameters" <|
             \_ ->
-                (Purl.root |> Purl.s "part" |> Purl.intParam "id" .id |> Purl.boolParam "show" .show)
+                (Purl.root |> Purl.s "part" |> Purl.intQuery "id" .id |> Purl.boolQuery "show" .show)
                     |> Purl.toString { id = 42, show = True }
                     |> Expect.equal "/part?id=42&show=true"
         , test "Can append a Nothing and a Just parameter" <|
             \_ ->
-                (Purl.root |> Purl.maybeS (Just "part") |> Purl.maybeIntParam "id" .id |> Purl.maybeBoolParam "show" .show)
+                (Purl.root |> Purl.maybeS (Just "part") |> Purl.maybeIntQuery "id" .id |> Purl.maybeBoolQuery "show" .show)
                     |> Purl.toString { id = Just 42, show = Nothing }
                     |> Expect.equal "/part?id=42"
         , test "Can have static parts, variables, and parameters" <|
             \_ ->
-                (Purl.root |> Purl.s "part" |> Purl.int .id |> Purl.stringParam "msg" .msg)
+                (Purl.root |> Purl.s "part" |> Purl.int .id |> Purl.stringQuery "msg" .msg)
                     |> Purl.toString { id = 42, msg = "hello" }
                     |> Expect.equal "/part/42?msg=hello"
         , test "Can have a hash" <|
@@ -142,4 +142,9 @@ suite =
                 (Purl.root |> Purl.s "part1" |> Purl.hash |> Purl.s "part2")
                     |> Purl.toString {}
                     |> Expect.equal "/part1/#/part2"
+        , test "Cannot have two hashes" <|
+            \_ ->
+                (Purl.root |> Purl.s "part1" |> Purl.hash |> Purl.s "part2" |> Purl.hash)
+                    |> Purl.toString {}
+                    |> Expect.equal ("/part1/#/part2/" ++ Url.percentEncode "#")
         ]

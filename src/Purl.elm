@@ -1,8 +1,10 @@
 module Purl exposing
     ( Url
     , root, s, maybeS, hash
-    , int, maybeInt, string, maybeString, bool, maybeBool, custom, maybeCustom
-    , intParam, maybeIntParam, stringParam, maybeStringParam, boolParam, maybeBoolParam, customParam, maybeCustomParam
+    , int, string, bool, custom
+    , maybeInt, maybeString, maybeBool, maybeCustom
+    , intQuery, stringQuery, boolQuery, customQuery
+    , maybeIntQuery, maybeStringQuery, maybeBoolQuery, maybeCustomQuery
     , toString
     )
 
@@ -10,13 +12,10 @@ module Purl exposing
 with records to give the parameters names and therefore reducing errors.
 
     userUrl : Url { id : Int, show : Bool }
-    userUrl = root
-        |> s "users"
-        |> int .id
-        |> boolParam "show" .show
+    userUrl =
+        root |> hash |> s "users" |> int .id |> boolQuery "show" .show
 
-    userUrl
-        |> toString { id = 42, show = True } --> "/users/42?show=true"
+    userUrl |> toString { id = 42, show = True } --> "/#/users/42?show=true"
 
 
 # Types
@@ -27,8 +26,10 @@ with records to give the parameters names and therefore reducing errors.
 # Builders
 
 @docs root, s, maybeS, hash
-@docs int, maybeInt, string, maybeString, bool, maybeBool, custom, maybeCustom
-@docs intParam, maybeIntParam, stringParam, maybeStringParam, boolParam, maybeBoolParam, customParam, maybeCustomParam
+@docs int, string, bool, custom
+@docs maybeInt, maybeString, maybeBool, maybeCustom
+@docs intQuery, stringQuery, boolQuery, customQuery
+@docs maybeIntQuery, maybeStringQuery, maybeBoolQuery, maybeCustomQuery
 
 
 # Presenting
@@ -41,16 +42,17 @@ import Url
 
 
 {-| A URL parameterized over the type `a`, which is typically a record containing
-a field for each parameterized segment.
+a field for each variable segment and query parameter.
 -}
 type Url a
     = Url
         { path : List (Part a)
         , query : List ( String, Part a )
+        , hasHash : Bool
         }
 
 
-{-| A parameterized part (segment or query value) of a URL.
+{-| A parameterized part (segment or query parameter) of a URL.
 -}
 type Part a
     = Part
@@ -113,41 +115,41 @@ toString p (Url { path, query }) =
 -}
 root : Url a
 root =
-    Url { path = [], query = [] }
+    Url { path = [], query = [], hasHash = False }
 
 
 {-| Append a custom segment with a Maybe value; it is omitted when the value is
 Nothing.
 
-    root
-        |> custom (.ids >> List.map String.fromInt >> String.join ";" >> Just)
-        |> toString { ids = [ 1, 2, 3 ] }
-        == "/1%3B2%3B3"
+    url : Url { ids : Maybe (List Int) }
+    url =
+        root
+            |> maybeCustom (.ids >> Maybe.map (List.map String.fromInt >> String.join ";"))
+
+    url |> toString { ids = Just [ 1, 2, 3 ] } --> "/1%3B2%3B3"
+    url |> toString { ids = Nothing } --> "/"
 
 -}
 maybeCustom : (a -> Maybe String) -> Url a -> Url a
-maybeCustom stringify (Url { path, query }) =
-    Url
-        { path = path ++ [ Part { stringify = stringify, skipUriEncode = False } ]
-        , query = query
-        }
+maybeCustom stringify (Url url) =
+    Url { url | path = url.path ++ [ Part { stringify = stringify, skipUriEncode = False } ] }
 
 
-{-| Append a custom parameter with a Maybe value; it is omitted when the value is
+{-| Append a custom query value with a Maybe value; it is omitted when the value is
 Nothing.
 
-    root
-        |> maybeCustom "ids" (.ids >> List.map String.fromInt >> String.join ";" >> Just)
-        |> toString { ids = [ 1, 2, 3 ] }
-        == "/?ids=1%3B2%3B3"
+    url : Url { ids : Maybe (List Int) }
+    url =
+        root
+            |> maybeCustomQuery "ids" (.ids >> Maybe.map (List.map String.fromInt >> String.join ";"))
+
+    url |> toString { ids = Just [ 1, 2, 3 ] } --> "/?ids=1%3B2%3B3"
+    url |> toString { ids = Nothing } --> "/"
 
 -}
-maybeCustomParam : String -> (a -> Maybe String) -> Url a -> Url a
-maybeCustomParam name stringify (Url { path, query }) =
-    Url
-        { path = path
-        , query = query ++ [ ( name, Part { stringify = stringify, skipUriEncode = False } ) ]
-        }
+maybeCustomQuery : String -> (a -> Maybe String) -> Url a -> Url a
+maybeCustomQuery name stringify (Url url) =
+    Url { url | query = url.query ++ [ ( name, Part { stringify = stringify, skipUriEncode = False } ) ] }
 
 
 {-| Append a custom segment.
@@ -163,17 +165,17 @@ custom stringify =
     maybeCustom (stringify >> Just)
 
 
-{-| Append a custom parameter.
+{-| Append a custom query value.
 
     root
-        |> customParam "ids" (.ids >> List.map String.fromInt >> String.join ";")
+        |> customQuery "ids" (.ids >> List.map String.fromInt >> String.join ";")
         |> toString { ids = [1, 2, 3] }
         --> "/?ids=1%3B2%3B3"
 
 -}
-customParam : String -> (a -> String) -> Url a -> Url a
-customParam name stringify =
-    maybeCustomParam name (stringify >> Just)
+customQuery : String -> (a -> String) -> Url a -> Url a
+customQuery name stringify =
+    maybeCustomQuery name (stringify >> Just)
 
 
 {-| Append a custom segment without URL-encoding and with a Maybe value; it is
@@ -186,17 +188,14 @@ omitted when the value is Nothing.
 
 -}
 maybeCustomRaw : (a -> Maybe String) -> Url a -> Url a
-maybeCustomRaw extract (Url { path, query }) =
-    Url
-        { path = path ++ [ Part { stringify = extract, skipUriEncode = True } ]
-        , query = query
-        }
+maybeCustomRaw extract (Url url) =
+    Url { url | path = url.path ++ [ Part { stringify = extract, skipUriEncode = True } ] }
 
 
 {-| Append a custom segment without URL-encoding.
 
     root
-        |> custom (.ids >> String.join ";")
+        |> customRaw (.ids >> String.join ";")
         |> toString { ids = [ "1", "2 3", "4" ] }
         == "/1;2 3;4"
 
@@ -214,7 +213,7 @@ value is Nothing.
         |> maybeS Nothing
         |> maybeS (Just "1")
         |> toString ()
-        == "/users/1"
+        --> "/users/1"
 
 -}
 maybeS : Maybe String -> Url a -> Url a
@@ -232,17 +231,18 @@ s segment =
     custom (always segment)
 
 
-{-| Append a parameterized (variable) integer segment with a Maybe value; it is omitted
+{-| Append an integer segment with a Maybe value; it is omitted
 when the value is Nothing.
 
+    url : Url { id : Maybe Int }
     url =
         root
             |> s "users"
             |> maybeInt .id
             |> s "images"
 
-    toString { id = Just 42 } url == "/users/42/images"
-    toString { id = Nothing } url == "/users/images"
+    toString { id = Just 42 } url --> "/users/42/images"
+    toString { id = Nothing } url --> "/users/images"
 
 -}
 maybeInt : (a -> Maybe Int) -> Url a -> Url a
@@ -250,7 +250,7 @@ maybeInt extract =
     maybeCustom (extract >> Maybe.map String.fromInt)
 
 
-{-| Append a parameterized (variable) integer segment.
+{-| Append an integer segment.
 
     root
         |> s "users"
@@ -264,49 +264,51 @@ int extract =
     custom (extract >> String.fromInt)
 
 
-{-| Append a parameterized (variable) integer parameter with a Maybe value; it is omitted
+{-| Append an integer parameter with a Maybe value; it is omitted
 when the value is Nothing.
 
+    url : Url { id : Maybe Int }
     url =
         root
             |> s "users"
             |> s "images"
-            |> maybeIntParam "id" .id
+            |> maybeIntQuery "id" .id
 
-    toString { id = Just 42 } url == "/users/images?id=42"
-    toString { id = Nothing } url == "/users/images"
+    toString { id = Just 42 } url --> "/users/images?id=42"
+    toString { id = Nothing } url --> "/users/images"
 
 -}
-maybeIntParam : String -> (a -> Maybe Int) -> Url a -> Url a
-maybeIntParam name extract =
-    maybeCustomParam name (extract >> Maybe.map String.fromInt)
+maybeIntQuery : String -> (a -> Maybe Int) -> Url a -> Url a
+maybeIntQuery name extract =
+    maybeCustomQuery name (extract >> Maybe.map String.fromInt)
 
 
-{-| Append a parameterized (variable) integer segment.
+{-| Append an integer segment.
 
     root
         |> s "users"
-        |> intParam "id" .id
+        |> intQuery "id" .id
         |> toString { id = 42 }
         --> "/users?id=42"
 
 -}
-intParam : String -> (a -> Int) -> Url a -> Url a
-intParam name extract =
-    customParam name (extract >> String.fromInt)
+intQuery : String -> (a -> Int) -> Url a -> Url a
+intQuery name extract =
+    customQuery name (extract >> String.fromInt)
 
 
-{-| Append a parameterized string segment with a Maybe value; it is omitted when the value
+{-| Append a string segment with a Maybe value; it is omitted when the value
 is Nothing.
 
+    url : Url { word : Maybe String }
     url =
         root
             |> s "say"
             |> maybeString .word
             |> s "world"
 
-    toString { word = Just "Hello" } url == "/say/Hello/world"
-    toString { word = Nothing } url == "/say/world"
+    toString { word = Just "Hello" } url --> "/say/Hello/world"
+    toString { word = Nothing } url --> "/say/world"
 
 -}
 maybeString : (a -> Maybe String) -> Url a -> Url a
@@ -314,7 +316,7 @@ maybeString =
     maybeCustom
 
 
-{-| Append a parameterized string segment.
+{-| Append a string segment.
 
     root
         |> s "say"
@@ -328,35 +330,36 @@ string =
     custom
 
 
-{-| Append a parameterized string parameter with a Maybe value; it is omitted when the value
+{-| Append a string query value with a Maybe value; it is omitted when the value
 is Nothing.
 
+    url : Url { word : Maybe String }
     url =
         root
             |> s "say"
-            |> maybeStringParam "word" .word
+            |> maybeStringQuery "word" .word
 
-    toString { word = Just "Hello" } url == "/say?word=Hello"
-    toString { word = Nothing } url == "/say"
+    toString { word = Just "Hello" } url --> "/say?word=Hello"
+    toString { word = Nothing } url --> "/say"
 
 -}
-maybeStringParam : String -> (a -> Maybe String) -> Url a -> Url a
-maybeStringParam =
-    maybeCustomParam
+maybeStringQuery : String -> (a -> Maybe String) -> Url a -> Url a
+maybeStringQuery =
+    maybeCustomQuery
 
 
-{-| Append a parameterized string parameter.
+{-| Append a string query value.
 
     root
         |> s "say"
-        |> stringParam "word" .word
+        |> stringQuery "word" .word
         |> toString { word = "Hello" }
         --> "/say?word=Hello"
 
 -}
-stringParam : String -> (a -> String) -> Url a -> Url a
-stringParam =
-    customParam
+stringQuery : String -> (a -> String) -> Url a -> Url a
+stringQuery =
+    customQuery
 
 
 boolToString : Bool -> String
@@ -368,15 +371,16 @@ boolToString b =
         "false"
 
 
-{-| Append a parameterized boolean segment with a Maybe value; it is omitted when the
+{-| Append a boolean segment with a Maybe value; it is omitted when the
 value is Nothing.
 
+    url : Url { show : Maybe Bool }
     url =
         root
             |> maybeBool .show
 
-    toString { show = Just True } url == "/true"
-    toString { show = Nothing } url == "/"
+    toString { show = Just True } url --> "/true"
+    toString { show = Nothing } url --> "/"
 
 -}
 maybeBool : (a -> Maybe Bool) -> Url a -> Url a
@@ -384,7 +388,7 @@ maybeBool extract =
     maybeCustom (extract >> Maybe.map boolToString)
 
 
-{-| Append a parameterized boolean segment.
+{-| Append a boolean segment.
 
     root
         |> bool .show
@@ -397,36 +401,37 @@ bool extract =
     custom (extract >> boolToString)
 
 
-{-| Append a parameterized boolean parameter with a Maybe value; it is omitted when the
+{-| Append a boolean query value with a Maybe value; it is omitted when the
 value is Nothing.
 
+    url : Url { show : Maybe Bool }
     url =
         root
-            |> maybeBool "show" .show
+            |> maybeBoolQuery "show" .show
 
-    toString { show = Just True } url == "/?show=true"
-    toString { show = Nothing } url == "/"
+    toString { show = Just True } url --> "/?show=true"
+    toString { show = Nothing } url --> "/"
 
 -}
-maybeBoolParam : String -> (a -> Maybe Bool) -> Url a -> Url a
-maybeBoolParam name extract =
-    maybeCustomParam name (extract >> Maybe.map boolToString)
+maybeBoolQuery : String -> (a -> Maybe Bool) -> Url a -> Url a
+maybeBoolQuery name extract =
+    maybeCustomQuery name (extract >> Maybe.map boolToString)
 
 
-{-| Append a parameterized boolean parameter.
+{-| Append a boolean query value.
 
     root
-        |> boolParam "show" .show
+        |> boolQuery "show" .show
         |> toString { show = True }
         --> "/?show=true"
 
 -}
-boolParam : String -> (a -> Bool) -> Url a -> Url a
-boolParam name extract =
-    customParam name (extract >> boolToString)
+boolQuery : String -> (a -> Bool) -> Url a -> Url a
+boolQuery name extract =
+    customQuery name (extract >> boolToString)
 
 
-{-| Append a hash-only segment.
+{-| Append a hash segment.
 
     root
         |> s "base"
@@ -435,7 +440,15 @@ boolParam name extract =
         |> toString {}
         --> "/base/#/page"
 
+NOTE: Only the first hash is unencoded:
+
+    root |> hash |> hash |> toString {} --> "/#/%23"
+
 -}
 hash : Url a -> Url a
-hash =
-    customRaw (always "#")
+hash (Url url) =
+    if url.hasHash then
+        custom (always "#") (Url url)
+
+    else
+        customRaw (always "#") (Url { url | hasHash = True })
