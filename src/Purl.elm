@@ -151,7 +151,7 @@ Nothing.
             |> maybeCustom (.ids >> Maybe.map (List.map String.fromInt >> String.join ";"))
 
     url |> toString { ids = Just [ 1, 2, 3 ] } --> "/1%3B2%3B3"
-    url |> toString { ids = Nothing } --> "/"str
+    url |> toString { ids = Nothing } --> "/"
 
 -}
 maybeCustom : (a -> Maybe String) -> Url a -> Url a
