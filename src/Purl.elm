@@ -15,7 +15,8 @@ with records to give the parameters names and therefore reducing errors.
     userUrl =
         root |> hash |> s "users" |> int .id |> boolQuery "show" .show
 
-    userUrl |> toString { id = 42, show = True } --> "/#/users/42?show=true"
+    userUrl |> toString { id = 42, show = True }
+        --> "/#/users/42?show=true"
 
 
 # Types
@@ -111,11 +112,13 @@ toString p (Url { prefix, path, query }) =
 
 {-| A custom root URL.
 
-    customRoot "http://example.com:8080/" |> toString () --> "http://example.com:8080/"
+    customRoot "http://example.com:8080/"
+        |> toString () --> "http://example.com:8080/"
 
 If the string has no trailing slash, one is added:
 
-    customRoot "http://example.com:8080" |> toString () --> "http://example.com:8080/"
+    customRoot "http://example.com:8080"
+        |> toString () --> "http://example.com:8080/"
 
 -}
 customRoot : String -> Url a
@@ -287,7 +290,7 @@ int extract =
     custom (extract >> String.fromInt)
 
 
-{-| Append an integer parameter with a Maybe value; it is omitted
+{-| Append an integer query value with a Maybe value; it is omitted
 when the value is Nothing.
 
     url : Url { id : Maybe Int }
@@ -306,7 +309,7 @@ maybeIntQuery name extract =
     maybeCustomQuery name (extract >> Maybe.map String.fromInt)
 
 
-{-| Append an integer segment.
+{-| Append an integer query value.
 
     root
         |> s "users"
