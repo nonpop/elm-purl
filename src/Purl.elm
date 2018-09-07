@@ -1,12 +1,11 @@
 module Purl exposing
     ( Url
-    , root, s, maybeS, hash
+    , root, s, maybeS, hash, customRoot
     , int, string, bool, custom
     , maybeInt, maybeString, maybeBool, maybeCustom
     , intQuery, stringQuery, boolQuery, customQuery
     , maybeIntQuery, maybeStringQuery, maybeBoolQuery, maybeCustomQuery
     , toString
-    , customRoot
     )
 
 {-| A tiny library for building parameterized URLs. It is intended to be used
@@ -26,7 +25,7 @@ with records to give the parameters names and therefore reducing errors.
 
 # Builders
 
-@docs root, s, maybeS, hash, rootString, rootFromParts
+@docs root, s, maybeS, hash, customRoot
 @docs int, string, bool, custom
 @docs maybeInt, maybeString, maybeBool, maybeCustom
 @docs intQuery, stringQuery, boolQuery, customQuery
