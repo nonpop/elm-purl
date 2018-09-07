@@ -14,6 +14,16 @@ suite =
                 Purl.root
                     |> Purl.toString ()
                     |> Expect.equal "/"
+        , test "Can use custom root string" <|
+            \_ ->
+                Purl.customRoot "http://example.com:8080/"
+                    |> Purl.toString ()
+                    |> Expect.equal "http://example.com:8080/"
+        , test "Can use custom root string without trailing slash" <|
+            \_ ->
+                Purl.customRoot "http://example.com:8080"
+                    |> Purl.toString ()
+                    |> Expect.equal "http://example.com:8080/"
         , test "Can append a static part" <|
             \_ ->
                 (Purl.root |> Purl.s "part")

@@ -6,6 +6,7 @@ module Purl exposing
     , intQuery, stringQuery, boolQuery, customQuery
     , maybeIntQuery, maybeStringQuery, maybeBoolQuery, maybeCustomQuery
     , toString
+    , customRoot
     )
 
 {-| A tiny library for building parameterized URLs. It is intended to be used
@@ -25,7 +26,7 @@ with records to give the parameters names and therefore reducing errors.
 
 # Builders
 
-@docs root, s, maybeS, hash
+@docs root, s, maybeS, hash, rootString, rootFromParts
 @docs int, string, bool, custom
 @docs maybeInt, maybeString, maybeBool, maybeCustom
 @docs intQuery, stringQuery, boolQuery, customQuery
@@ -46,7 +47,8 @@ a field for each variable segment and query parameter.
 -}
 type Url a
     = Url
-        { path : List (Part a)
+        { prefix : String
+        , path : List (Part a)
         , query : List ( String, Part a )
         , hasHash : Bool
         }
@@ -90,7 +92,7 @@ queryPartToString p ( name, part ) =
 {-| Give a string representation of the URL, given a value for the parameter.
 -}
 toString : a -> Url a -> String
-toString p (Url { path, query }) =
+toString p (Url { prefix, path, query }) =
     let
         pathStr =
             String.join "/" (List.filterMap (partToString p) path)
@@ -98,7 +100,7 @@ toString p (Url { path, query }) =
         queryStr =
             String.join "&" (List.filterMap (queryPartToString p) query)
     in
-    "/"
+    prefix
         ++ pathStr
         ++ (if String.isEmpty queryStr then
                 ""
@@ -108,6 +110,28 @@ toString p (Url { path, query }) =
            )
 
 
+{-| A custom root URL.
+
+    customRoot "http://example.com:8080/" |> toString () --> "http://example.com:8080/"
+
+If the string has no trailing slash, one is added:
+
+    customRoot "http://example.com:8080" |> toString () --> "http://example.com:8080/"
+
+-}
+customRoot : String -> Url a
+customRoot prefix =
+    let
+        withTrailingSlash =
+            if not (String.endsWith "/" prefix) then
+                prefix ++ "/"
+
+            else
+                prefix
+    in
+    Url { prefix = withTrailingSlash, path = [], query = [], hasHash = False }
+
+
 {-| The root URL.
 
     root |> toString () --> "/"
@@ -115,7 +139,7 @@ toString p (Url { path, query }) =
 -}
 root : Url a
 root =
-    Url { path = [], query = [], hasHash = False }
+    customRoot ""
 
 
 {-| Append a custom segment with a Maybe value; it is omitted when the value is
@@ -127,7 +151,7 @@ Nothing.
             |> maybeCustom (.ids >> Maybe.map (List.map String.fromInt >> String.join ";"))
 
     url |> toString { ids = Just [ 1, 2, 3 ] } --> "/1%3B2%3B3"
-    url |> toString { ids = Nothing } --> "/"
+    url |> toString { ids = Nothing } --> "/"str
 
 -}
 maybeCustom : (a -> Maybe String) -> Url a -> Url a
