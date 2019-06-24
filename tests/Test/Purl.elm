@@ -142,6 +142,40 @@ suite =
                 (Purl.root |> Purl.maybeS (Just "part") |> Purl.maybeIntQuery "id" .id |> Purl.maybeBoolQuery "show" .show)
                     |> Purl.toString { id = Just 42, show = Nothing }
                     |> Expect.equal "/part?id=42"
+        , test "Can append a Maybe bare parameter" <|
+            \_ ->
+                (Purl.root |> Purl.maybeS (Just "part") |> Purl.maybeCustomQueryBare (.id >> Maybe.map (always "hasId")))
+                    |> Purl.toString { id = Just 42 }
+                    |> Expect.equal "/part?hasId"
+        , test "Can append a Maybe bare parameter and another parameter with Just values" <|
+            \_ ->
+                let
+                    queryBuilder =
+                        Purl.maybeCustomQueryBareRaw (.id >> Maybe.map (always "hasId&sendsId")) >> Purl.maybeIntQuery "id" .id
+                in
+                (Purl.root |> Purl.maybeS (Just "part") |> queryBuilder)
+                    |> Purl.toString { id = Just 42 }
+                    |> Expect.equal "/part?hasId&sendsId&id=42"
+        , test "Can append a Maybe bare parameter and another parameter with Nothing values" <|
+            \_ ->
+                let
+                    queryBuilder =
+                        Purl.maybeCustomQueryBareRaw (.id >> Maybe.map (always "hasId&sendsId")) >> Purl.maybeIntQuery "id" .id
+                in
+                (Purl.root |> Purl.maybeS (Just "part") |> queryBuilder)
+                    |> Purl.toString { id = Nothing }
+                    |> Expect.equal "/part"
+        , test "Can append a bare parameter and another parameter and will encode when specified" <|
+            \_ ->
+                let
+                    queryBuilder =
+                        Purl.customQueryBareRaw (always "a&b")
+                            >> Purl.intQuery "id" .id
+                            >> Purl.customQueryBare (always "c=a&b")
+                in
+                (Purl.root |> Purl.maybeS (Just "part") |> queryBuilder)
+                    |> Purl.toString { id = 10 }
+                    |> Expect.equal "/part?a&b&id=10&c%3Da%26b"
         , test "Can have static parts, variables, and parameters" <|
             \_ ->
                 (Purl.root |> Purl.s "part" |> Purl.int .id |> Purl.stringQuery "msg" .msg)

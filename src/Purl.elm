@@ -6,6 +6,7 @@ module Purl exposing
     , intQuery, stringQuery, boolQuery, customQuery
     , maybeIntQuery, maybeStringQuery, maybeBoolQuery, maybeCustomQuery
     , toString
+    , customQueryBare, customQueryBareRaw, encodeUriPart, maybeCustomQueryBare, maybeCustomQueryBareRaw
     )
 
 {-| A tiny library for building parameterized URLs. It is intended to be used
@@ -49,7 +50,7 @@ type Url a
     = Url
         { prefix : String
         , path : List (Part a)
-        , query : List ( String, Part a )
+        , query : List ( Maybe String, Part a )
         , hasHash : Bool
         }
 
@@ -84,9 +85,16 @@ partToString p (Part { stringify, skipUriEncode }) =
     stringify p |> Maybe.map (encodeUriPart skipUriEncode)
 
 
-queryPartToString : a -> ( String, Part a ) -> Maybe String
-queryPartToString p ( name, part ) =
-    partToString p part |> Maybe.map (\str -> name ++ "=" ++ str)
+queryPartToString : a -> ( Maybe String, Part a ) -> Maybe String
+queryPartToString p ( maybeName, part ) =
+    partToString p part
+        |> (case maybeName of
+                Nothing ->
+                    identity
+
+                Just name ->
+                    Maybe.map (\str -> name ++ "=" ++ str)
+           )
 
 
 {-| Give a string representation of the URL, given a value for the parameter.
@@ -175,7 +183,40 @@ Nothing.
 -}
 maybeCustomQuery : String -> (a -> Maybe String) -> Url a -> Url a
 maybeCustomQuery name stringify (Url url) =
-    Url { url | query = url.query ++ [ ( name, Part { stringify = stringify, skipUriEncode = False } ) ] }
+    Url { url | query = url.query ++ [ ( Just name, Part { stringify = stringify, skipUriEncode = False } ) ] }
+
+
+{-| Append a custom query value with no name and a Maybe value;
+it is omitted when the value is Nothing.
+
+    url : Url { ids : Maybe (List Int) }
+    url =
+        root
+            |> maybeCustomQueryBare (.ids >> Maybe.map (always "bare"))
+
+    url |> toString { ids = Just [ 1, 2, 3 ] } --> "/?bare"
+    url |> toString { ids = Nothing } --> "/"
+
+-}
+maybeCustomQueryBare : (a -> Maybe String) -> Url a -> Url a
+maybeCustomQueryBare stringify (Url url) =
+    Url { url | query = url.query ++ [ ( Nothing, Part { stringify = stringify, skipUriEncode = False } ) ] }
+
+
+{-| Append a custom query value with no name and a Maybe value without encoding it;
+it is omitted when the value is Nothing.
+
+    url : Url { ids : Maybe (List Int) }
+    url =
+        root
+            |> maybeCustomQueryBareRaw (.ids >> Maybe.map (always "bare&bear"))
+
+    url |> toString { ids = Just [ 1, 2, 3 ] } --> "/?bare&bear"
+
+-}
+maybeCustomQueryBareRaw : (a -> Maybe String) -> Url a -> Url a
+maybeCustomQueryBareRaw stringify (Url url) =
+    Url { url | query = url.query ++ [ ( Nothing, Part { stringify = stringify, skipUriEncode = True } ) ] }
 
 
 {-| Append a custom segment.
@@ -202,6 +243,32 @@ custom stringify =
 customQuery : String -> (a -> String) -> Url a -> Url a
 customQuery name stringify =
     maybeCustomQuery name (stringify >> Just)
+
+
+{-| Append a custom bare value.
+
+    root
+        |> customQueryBare False (.id >> (\n -> if n > 0 then "positive" else if n < 0 then "negative" else "zero"))
+        |> toString { id = 1 }
+        --> "/?positive"
+
+-}
+customQueryBare : (a -> String) -> Url a -> Url a
+customQueryBare stringify =
+    maybeCustomQueryBare (stringify >> Just)
+
+
+{-| Append a custom bare value without encoding it.
+
+    root
+        |> customQueryBare False (.id >> (\n -> if n > 0 then "positive" else if n < 0 then "negative" else "zero"))
+        |> toString { id = 1 }
+        --> "/?positive"
+
+-}
+customQueryBareRaw : (a -> String) -> Url a -> Url a
+customQueryBareRaw stringify =
+    maybeCustomQueryBareRaw (stringify >> Just)
 
 
 {-| Append a custom segment without URL-encoding and with a Maybe value; it is
